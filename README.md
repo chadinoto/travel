@@ -37,9 +37,17 @@ Edit the pages in `src/`, then commit and push:
 git add -A && git commit -m "Update trips" && git push
 ```
 
-A pre-commit hook rebuilds `docs/` and stages it, so the published site can
-never lag behind `src/`. It also refuses to commit `src/` or `.env`. To build
-without committing, run it by hand:
+Because `src/` is gitignored, a change to a trip page leaves git's index empty
+and `git commit` aborts before it notices the rebuild. So after editing `src/`,
+publish in one step:
+
+```bash
+"claude scripts/publish" "Add the Lisbon trip"
+```
+
+That builds, commits and pushes. A pre-commit hook does the same rebuild
+whenever you commit by hand, so the published site can never lag behind `src/`,
+and it refuses to commit `src/` or `.env`. To build without committing:
 
 ```bash
 uv run "claude scripts/build_site.py"

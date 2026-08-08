@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# Build, commit and push in one step. Use this after editing anything in src/,
+# because a src-only change leaves git's index empty and a plain `git commit`
+# then aborts before the pre-commit hook's rebuild is taken into account.
+#
+#     "claude scripts/publish" "Add the Lisbon trip"
+#
+# Without a message it uses "Update trips".
+
+set -e
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+message=${1:-Update trips}
+
+uv run --quiet "claude scripts/build_site.py" >/dev/null
+git add -A
+
+if git diff --cached --quiet; then
+    echo "publish: nothing changed"
+    exit 0
+fi
+
+git diff --cached --name-only | sed 's/^/  /'
+git commit -q -m "$message"
+git push -q origin HEAD
+echo "publish: pushed. Live in about a minute."

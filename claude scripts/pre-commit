@@ -28,10 +28,25 @@ if ! command -v uv >/dev/null 2>&1; then
     exit 1
 fi
 
+# src/ is gitignored, so a src-only edit leaves the index empty. Git decides
+# there is "nothing to commit" before it sees what this hook stages, so note
+# whether anything was staged to begin with.
+if git rev-parse --verify -q HEAD >/dev/null && git diff --cached --quiet; then
+    had_staged=no
+else
+    had_staged=yes
+fi
+
 echo "pre-commit: rebuilding docs/"
 uv run --quiet "claude scripts/build_site.py" >/dev/null
 
 git add -A docs
+
+if [ "$had_staged" = no ] && ! git diff --cached --quiet; then
+    echo "pre-commit: docs/ rebuilt from src/ and staged."
+    echo "pre-commit: run the same commit again to record it, or use 'claude scripts/publish'."
+    exit 1
+fi
 
 # Last line of defence: never let readable trip content reach a commit.
 if git diff --cached --name-only | grep -qE '^src/'; then
