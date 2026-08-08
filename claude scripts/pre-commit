@@ -48,6 +48,16 @@ if [ "$had_staged" = no ] && ! git diff --cached --quiet; then
     exit 1
 fi
 
+# docs/ may only ever contain encrypted pages. A page dropped straight into
+# docs/ instead of src/ never passes through the build, so check every one.
+for page in $(git diff --cached --name-only | grep -E '^docs/.*\.html$'); do
+    if ! git show ":$page" | grep -q 'type="application/octet-stream"'; then
+        echo "pre-commit: $page is not encrypted." >&2
+        echo "pre-commit: move it to src/ and rebuild; docs/ is generated, never edited." >&2
+        exit 1
+    fi
+done
+
 # Last line of defence: never let readable trip content reach a commit.
 if git diff --cached --name-only | grep -qE '^src/'; then
     echo "pre-commit: refusing to commit plaintext from src/" >&2
