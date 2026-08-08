@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# Rebuilds docs/ from src/ before every commit and stages the result, so the
+# published site can never lag behind the sources. Install with:
+#
+#     ln -sf "../../claude scripts/pre-commit" .git/hooks/pre-commit
+#
+# Skip once with:  git commit --no-verify
+
+set -e
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+# A clone without the plaintext sources (or without .env) cannot build, and
+# should still be able to commit README or config changes.
+if [ ! -d src ] || [ -z "$(find src -name '*.html' -print -quit 2>/dev/null)" ]; then
+    echo "pre-commit: no src/*.html here, leaving docs/ untouched"
+    exit 0
+fi
+if [ ! -f .env ] && [ -z "$TRAVEL_PASSWORD" ]; then
+    echo "pre-commit: no .env and no TRAVEL_PASSWORD, leaving docs/ untouched"
+    exit 0
+fi
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "pre-commit: uv not found, cannot rebuild docs/" >&2
+    exit 1
+fi
+
+echo "pre-commit: rebuilding docs/"
+uv run --quiet "claude scripts/build_site.py" >/dev/null
+
+git add -A docs
+
+# Last line of defence: never let readable trip content reach a commit.
+if git diff --cached --name-only | grep -qE '^src/'; then
+    echo "pre-commit: refusing to commit plaintext from src/" >&2
+    exit 1
+fi
+if git diff --cached --name-only | grep -qE '^\.env$'; then
+    echo "pre-commit: refusing to commit .env" >&2
+    exit 1
+fi
+
+exit 0
